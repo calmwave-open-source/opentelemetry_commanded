@@ -11,28 +11,43 @@ defmodule OpentelemetryCommanded.Aggregate do
 
   def setup() do
     :telemetry.attach(
-      {__MODULE__, :start},
+      {__MODULE__, :command_start},
       [:commanded, :aggregate, :execute, :start],
-      &__MODULE__.handle_start/4,
+      &__MODULE__.handle_command_start/4,
       []
     )
 
     :telemetry.attach(
-      {__MODULE__, :stop},
+      {__MODULE__, :command_stop},
       [:commanded, :aggregate, :execute, :stop],
-      &__MODULE__.handle_stop/4,
+      &__MODULE__.handle_command_stop/4,
       []
     )
 
     :telemetry.attach(
-      {__MODULE__, :exception},
+      {__MODULE__, :command_exception},
       [:commanded, :aggregate, :execute, :exception],
-      &__MODULE__.handle_exception/4,
+      &__MODULE__.handle_command_exception/4,
       []
     )
+
+    :telemetry.attach(
+      {__MODULE__, :populate_start},
+      [:commanded, :aggregate, :populate, :start],
+      &__MODULE__.handle_populate_start/4,
+      []
+    )
+
+    :telemetry.attach(
+      {__MODULE__, :populate_stop},
+      [:commanded, :aggregate, :populate, :stop],
+      &__MODULE__.handle_populate_stop/4,
+      []
+    )
+
   end
 
-  def handle_start(_event, _, meta, _) do
+  def handle_command_start(_event, _, meta, _) do
     context = meta.execution_context
 
     safe_context_propagation(context.metadata["trace_ctx"])
@@ -64,7 +79,7 @@ defmodule OpentelemetryCommanded.Aggregate do
     )
   end
 
-  def handle_stop(_event, _measurements, meta, _) do
+  def handle_command_stop(_event, _measurements, meta, _) do
     # ensure the correct span is current
     ctx = OpentelemetryTelemetry.set_current_telemetry_span(@tracer_id, meta)
 
@@ -78,7 +93,7 @@ defmodule OpentelemetryCommanded.Aggregate do
     OpentelemetryTelemetry.end_telemetry_span(@tracer_id, meta)
   end
 
-  def handle_exception(
+  def handle_command_exception(
         _event,
         _measurements,
         %{kind: kind, reason: reason, stacktrace: stacktrace} = meta,
@@ -95,4 +110,36 @@ defmodule OpentelemetryCommanded.Aggregate do
 
     OpentelemetryTelemetry.end_telemetry_span(@tracer_id, meta)
   end
+
+  def handle_populate_start(_event, _, meta, _) do
+    context = meta.execution_context
+
+    safe_context_propagation(context.metadata["trace_ctx"])
+
+    attributes = [
+      "commanded.aggregate_uuid": meta.aggregate_uuid,
+      "commanded.aggregate_version": meta.aggregate_version,
+      "commanded.application": meta.application,
+      "commanded.function": context.function
+    ]
+
+    OpentelemetryTelemetry.start_telemetry_span(
+      @tracer_id,
+      "commanded.aggregate.pupulate",
+      meta,
+      %{
+        kind: :consumer,
+        attributes: attributes
+      }
+    )
+  end
+
+  def handle_command_stop(event, measurements, meta, _) do
+    IO.inspect(event, label: "event")
+    IO.inspect(measurements, label: "measurements")
+    IO.inspect(meta, label: "meta")
+
+    OpentelemetryTelemetry.end_telemetry_span(@tracer_id, meta)
+  end
+
 end
