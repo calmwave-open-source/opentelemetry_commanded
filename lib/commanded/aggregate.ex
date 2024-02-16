@@ -111,16 +111,11 @@ defmodule OpentelemetryCommanded.Aggregate do
     OpentelemetryTelemetry.end_telemetry_span(@tracer_id, meta)
   end
 
-  def handle_populate_start(_event, _, meta, _) do
-    context = meta.execution_context
-
-    safe_context_propagation(context.metadata["trace_ctx"])
-
+  def handle_populate_start(_event, _measurements, meta, _) do
     attributes = [
       "commanded.aggregate_uuid": meta.aggregate_uuid,
       "commanded.aggregate_version": meta.aggregate_version,
-      "commanded.application": meta.application,
-      "commanded.function": context.function
+      "commanded.application": meta.application
     ]
 
     OpentelemetryTelemetry.start_telemetry_span(
@@ -134,10 +129,10 @@ defmodule OpentelemetryCommanded.Aggregate do
     )
   end
 
-  def handle_populate_stop(event, measurements, meta, _) do
-    IO.inspect(event, label: "event")
-    IO.inspect(measurements, label: "measurements")
-    IO.inspect(meta, label: "meta")
+  def handle_populate_stop(_event, measurements, meta, _) do
+    ctx = OpentelemetryTelemetry.set_current_telemetry_span(@tracer_id, meta)
+
+    Span.set_attribute(ctx, :"commanded.event_count", measurements.count)
 
     OpentelemetryTelemetry.end_telemetry_span(@tracer_id, meta)
   end
