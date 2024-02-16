@@ -134,7 +134,7 @@ defmodule OpentelemetryCommanded.Aggregate do
     )
   end
 
-  def handle_command_stop(event, measurements, meta, _) do
+  def handle_populate_stop(event, measurements, meta, _) do
     IO.inspect(event, label: "event")
     IO.inspect(measurements, label: "measurements")
     IO.inspect(meta, label: "meta")
